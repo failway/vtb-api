@@ -1,6 +1,3 @@
-# Dependencies
-node_modules/
-
 # Logs
 logs
 *.log
@@ -10,47 +7,26 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Build outputs
-dist/
-dist-ssr/
-coverage/
-
-# Environment variables
-.env*.local
-.env*.dev
-.env*.prod
-.env*.production
-.env*.test
+node_modules
+.DS_Store
+dist
+dist-ssr
+coverage
+*.local
 
 # Editor directories and files
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
 !.vscode/extensions.json
-!.vscode/codium/extensions.json
-.idea/
+.idea
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# TypeScript
 *.tsbuildinfo
-*.tmp
-*.temp
-dist/
-build/
 
-# Local development server
-.hnrouter
-.ports
-*.sock
+.eslintcache
 
 # Cypress
 /cypress/videos/
@@ -59,17 +35,5 @@ build/
 # Vitest
 __screenshots__/
 
-# Vue specific
-.vuepress/dist
-.shields.io
-*.local
-
-# Nuxt
-.nuxt
-.output
-dist/
-app.html
-app.(css|js)
-.nitro
-nitro.config.ts
-generated
+*.bat
+combined_output.txt
