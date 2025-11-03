@@ -1,0 +1,19 @@
+FROM node:20
+
+WORKDIR /app
+
+# Устанавливаем pnpm
+RUN npm install -g pnpm
+
+# Копируем package.json (только он тебе и нужен)
+COPY package.json ./
+
+# Устанавливаем зависимости
+RUN pnpm i
+
+# Копируем остальной код проекта
+COPY . .
+
+EXPOSE 5173
+
+CMD ["pnpm", "run", "dev", "--", "--host"]

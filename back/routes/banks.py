@@ -21,6 +21,7 @@ BANK_URLS = {
 CLIENT_ID = os.getenv("CLIENT_ID", "team239")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "F1cVm5XwPoWquHf70R9VC8437ofbrQi0")
 
+
 # ---------- AUTH ----------
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = verify_token(token, token_type="access")
@@ -127,117 +128,214 @@ async def get_or_refresh_token(user_id: int, bank: str):
 
 
 # ---------- Endpoints ----------
-
-@router.post("/{bank}/token")
-async def get_bank_token(bank: str, user=Depends(get_current_user)):
-    token = await get_or_refresh_token(user.id, bank)
-    return {"access_token": token, "bank": bank, "user_id": user.id}
-
-
-@router.get("/{bank}/accounts")
-async def get_accounts(bank: str, user=Depends(get_current_user)):
+@router.post("/{bank}/connect")
+async def connect_bank(bank: str, user=Depends(get_current_user)):
+    """Создаёт согласие и сохраняет request_id (req_id), если его ещё нет"""
     if bank not in BANK_URLS:
         raise HTTPException(status_code=400, detail="Неверный банк")
 
-    user_id = user.id
-    token = await get_or_refresh_token(user_id, bank)
-
-    # Проверяем, есть ли consent
-    query = select(bank_tokens).where(
-        (bank_tokens.c.user_id == user_id) &
-        (bank_tokens.c.bank_name == bank)
-    )
-    consent = await database.fetch_one(query)
-
-    # --- если нет consent, пробуем создать ---
-    if not consent:
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "X-Requesting-Bank": CLIENT_ID,
-        }
-
-        body = {
-            "client_id": f"{CLIENT_ID}-{user_id}",
-            "permissions": ["ReadAccountsDetail", "ReadBalances"],
-            "reason": "Агрегация счетов для MapTrack",
-            "requesting_bank": CLIENT_ID,
-            "requesting_bank_name": "Team 239 App",
-        }
-
-        async with httpx.AsyncClient(verify=False) as client:
-            resp = await client.post(f"{BANK_URLS[bank]}/account-consents/request", headers=headers, json=body)
-
-        if resp.status_code != 200:
-            raise HTTPException(status_code=resp.status_code, detail=resp.text)
-
-        data = resp.json()
-
-        # Проверяем, есть ли consent_id
-        consent_id = data.get("consent_id")
-        status = data.get("status", "unknown")
-
-        # если нет consent_id — сохраняем статус ожидания
-        await database.execute(
-            insert(bank_tokens).values(
-                user_id=user_id,
-                bank_name=bank,
-                consent_id=consent_id or "pending",
-                client_id=f"{CLIENT_ID}-{user_id}",
-                status=status,
-                created_at=datetime.utcnow(),
-            )
+    existing = await database.fetch_one(
+        select(bank_consents).where(
+            (bank_consents.c.user_id == user.id) &
+            (bank_consents.c.bank_name == bank)
         )
+    )
 
-        # если согласие не одобрено — сообщаем пользователю
-        if not consent_id or status != "approved":
+    if existing:
+        status = existing["status"]
+        if status in ["pending", "AwaitingAuthorization"]:
             return {
-                "message": "Согласие создано, но ожидает подтверждения в банке.",
+                "message": "Согласие уже ожидает подтверждения",
                 "bank": bank,
                 "status": status,
+                "req_id": existing["req_id"],
+                "consent_id": existing["consent_id"],
+                "connected": False
+            }
+        if status in ["approved", "Authorized"]:
+            return {
+                "message": "Банк уже подключен",
+                "bank": bank,
+                "status": status,
+                "req_id": existing["req_id"],
+                "consent_id": existing["consent_id"],
+                "connected": True
             }
 
-    else:
-        consent_id = consent["consent_id"]
-        status = consent["status"]
+    token = await get_or_refresh_token(user.id, bank)
+    headers = {"Authorization": f"Bearer {token}", "X-Requesting-Bank": CLIENT_ID}
 
-        if consent_id == "pending" or status != "approved":
-            # Проверяем статус вручную
-            headers = {"Authorization": f"Bearer {token}", "X-Requesting-Bank": CLIENT_ID}
-            async with httpx.AsyncClient(verify=False) as client:
-                resp = await client.get(f"{BANK_URLS[bank]}/account-consents/{consent_id}", headers=headers)
-
-            if resp.status_code == 200:
-                data = resp.json().get("data", {})
-                if data.get("status") == "approved":
-                    await database.execute(
-                        update(bank_tokens)
-                        .where(bank_tokens.c.id == consent["id"])
-                        .values(status="approved", consent_id=data.get("consentId"))
-                    )
-                    consent_id = data.get("consentId")
-                else:
-                    return {"message": "Согласие всё ещё не подтверждено пользователем", "status": data.get("status")}
-            else:
-                raise HTTPException(status_code=resp.status_code, detail="Ошибка при проверке статуса согласия")
-
-    # --- Получаем счета ---
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "X-Requesting-Bank": CLIENT_ID,
-        "X-Consent-Id": consent_id,
+    body = {
+        "client_id": f"{CLIENT_ID}-{user.id}",
+        "permissions": ["ReadAccountsDetail", "ReadBalances"],
+        "reason": "Агрегация счетов для MapTrack",
+        "requesting_bank": CLIENT_ID,
+        "requesting_bank_name": "Team 239 App",
     }
 
     async with httpx.AsyncClient(verify=False) as client:
-        resp = await client.get(f"{BANK_URLS[bank]}/accounts", headers=headers, params={"client_id": f"{CLIENT_ID}-{user_id}"})
+        resp = await client.post(f"{BANK_URLS[bank]}/account-consents/request", headers=headers, json=body)
 
     if resp.status_code != 200:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
 
-    return resp.json()
+    data = resp.json()
+    req_id = data.get("request_id")
+    consent_id = data.get("consent_id")
+    status = data.get("status", "pending")
 
-@router.get("/{bank}/consent/{consent_id}")
-async def get_consent_status(bank: str, consent_id: str, user=Depends(get_current_user)):
+    await database.execute(
+        insert(bank_consents).values(
+            user_id=user.id,
+            bank_name=bank,
+            req_id=req_id,
+            consent_id=consent_id,
+            client_id=f"{CLIENT_ID}",
+            status=status,
+        )
+    )
+
+    return {
+        "message": "Согласие создано",
+        "bank": bank,
+        "req_id": req_id,
+        "consent_id": consent_id,
+        "status": status,
+        "connected": status in ["approved", "Authorized"]
+    }
+
+@router.get("/{bank}/status")
+async def get_bank_status(bank: str, user=Depends(get_current_user)):
+    """Проверяет статус согласия в банке и синхронизирует с БД"""
+    if bank not in BANK_URLS:
+        raise HTTPException(status_code=400, detail="Неверный банк")
+
+    record = await database.fetch_one(
+        select(bank_consents).where(
+            (bank_consents.c.user_id == user.id) &
+            (bank_consents.c.bank_name == bank)
+        )
+    )
+
+    if not record:
+        return {
+            "bank": bank,
+            "status": "not_connected",
+            "connected": False
+        }
+
+    consent_id = record["consent_id"] or record["req_id"]
+    local_status = record["status"]
+
     token = await get_or_refresh_token(user.id, bank)
-    headers = {"Authorization": f"Bearer {token}", "X-Requesting-Bank": CLIENT_ID}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Requesting-Bank": CLIENT_ID,
+    }
+
     url = f"{BANK_URLS[bank]}/account-consents/{consent_id}"
-    return await request_bank("GET", url, headers=headers)
+
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
+            resp = await client.get(url, headers=headers)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Ошибка при обращении к банку: {str(e)}")
+
+    if resp.status_code == 404:
+        await database.execute(bank_consents.delete().where(bank_consents.c.id == record["id"]))
+        return {
+            "bank": bank,
+            "status": "revoked",
+            "connected": False,
+            "message": "Согласие отозвано (404) и удалено локально"
+        }
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+
+    data = resp.json().get("data", {})
+    new_status = data.get("status", local_status)
+    new_consent_id = data.get("consentId", consent_id)
+
+    if new_status.lower() in ["revoked", "rejected"]:
+        await database.execute(bank_consents.delete().where(bank_consents.c.id == record["id"]))
+        return {
+            "bank": bank,
+            "status": new_status,
+            "connected": False,
+            "message": f"Согласие {new_status.lower()} и удалено из базы"
+        }
+
+    if new_status != local_status or new_consent_id != consent_id:
+        await database.execute(
+            update(bank_consents)
+            .where(bank_consents.c.id == record["id"])
+            .values(status=new_status, consent_id=new_consent_id)
+        )
+
+    connected = new_status in ["approved", "Authorized"]
+
+    return {
+        "bank": bank,
+        "status": new_status,
+        "req_id": record["req_id"],
+        "consent_id": new_consent_id,
+        "connected": connected
+    }
+
+@router.delete("/{bank}/revoke")
+async def revoke_consent(bank: str, user=Depends(get_current_user)):
+    """Отзывает согласие у банка и удаляет локальную запись"""
+    if bank not in BANK_URLS:
+        raise HTTPException(status_code=400, detail="Неверный банк")
+
+    record = await database.fetch_one(
+        select(bank_consents).where(
+            (bank_consents.c.user_id == user.id) &
+            (bank_consents.c.bank_name == bank)
+        )
+    )
+
+    if not record:
+        raise HTTPException(status_code=404, detail="Согласие не найдено")
+
+    consent_id = record["consent_id"] or record["req_id"]
+    if not consent_id:
+        raise HTTPException(status_code=400, detail="Нет доступного идентификатора согласия")
+
+    url = f"{BANK_URLS[bank]}/account-consents/{consent_id}"
+    headers = {
+        "x-fapi-interaction-id": CLIENT_ID,  # может быть team239
+    }
+
+    async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
+        resp = await client.delete(url, headers=headers)
+
+    if resp.status_code == 204:
+        await database.execute(
+            bank_consents.delete().where(bank_consents.c.id == record["id"])
+        )
+        return {
+            "message": "Согласие успешно отозвано",
+            "bank": bank,
+            "consent_id": consent_id,
+            "status": "revoked",
+            "connected": False
+        }
+
+    elif resp.status_code == 404:
+        await database.execute(
+            bank_consents.delete().where(bank_consents.c.id == record["id"])
+        )
+        return {
+            "message": "Согласие не найдено у банка, локальная запись удалена",
+            "bank": bank,
+            "status": "revoked",
+            "connected": False
+        }
+
+    else:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Ошибка при отзыве согласия: {resp.text}"
+        )

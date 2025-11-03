@@ -3,3 +3,13 @@ __pycache__/
 *.pyc
 *.pyd
 *.db
+.pnpm-store/
+node_modules/
+
+# Логи
+*.log
+
+# Docker
+*.pid
+*.sock
+.env

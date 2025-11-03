@@ -44,12 +44,13 @@ bank_consents = Table(
     Column("id", Integer, primary_key=True),
     Column("user_id", Integer, ForeignKey("users.id"), nullable=False),
     Column("bank_name", String, nullable=False),
-    Column("consent_id", String, nullable=False),
-    Column("client_id", String, nullable=False),
-    Column("status", String, default="approved"),
+    Column("req_id", String, nullable=True),         # 🆕 ID заявки
+    Column("consent_id", String, nullable=True),     # 🆕 настоящий ID согласия (после подтверждения)
+    Column("client_id", String, nullable=True),
+    Column("status", String, default="pending"),
     Column("created_at", DateTime, default=datetime.utcnow),
-    extend_existing=True,
 )
+
 
 # Создание всех таблиц, если их ещё нет
 # metadata.create_all(engine)
