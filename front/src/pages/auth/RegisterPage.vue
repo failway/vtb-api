@@ -39,8 +39,8 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import AppLogo from "@/app/ui/AppLogo.vue"
 import RegisterForm from "@/common/forms/RegisterForm.vue"
-import type {RegisterPayload} from "@/common/types/auth/RegisterPayload.ts";
-import {useRegisterStore} from "@/store/registerStore.ts";
+import type {RegisterPayload} from "@/common/types/register/RegisterPayload.ts";
+import {useRegisterStore} from "@/store/RegisterStore.ts";
 
 const registerStore = useRegisterStore()
 

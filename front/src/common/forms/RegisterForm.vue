@@ -1,5 +1,5 @@
 <template>
-  <form @submit="onSubmit" class="space-y-4">
+  <form @submit.prevent="onSubmit" class="space-y-4">
     <div class="space-y-2">
       <label class="text-sm font-medium">Email</label>
       <Input
@@ -102,7 +102,7 @@ import { useForm, useField, configure } from "vee-validate"
 import { registerSchema } from "@/common/shemas/RegisterShema.ts"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import type {RegisterPayload} from "@/common/types/auth/RegisterPayload.ts";
+import type {RegisterPayload} from "@/common/types/register/RegisterPayload.ts";
 
 interface Props {
   isLoading?: boolean
@@ -178,8 +178,12 @@ const onSubmit = handleSubmit(async (values) => {
     }
 
     emit('submit', payload)
-  } catch (e: any) {
-    emit('update:serverError', e.message)
+  } catch (e: unknown) {
+    let message = 'Произошла неизвестная ошибка'
+    if (e instanceof Error) {
+      message = e.message
+    }
+    emit('update:serverError', message)
     emit('update:isLoading', false)
   }
 })

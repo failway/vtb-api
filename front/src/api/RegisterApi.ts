@@ -1,5 +1,5 @@
-import type { RegisterPayload } from '../common/types/auth/RegisterPayload.ts';
-import type { RegisterResponse } from '../common/types/auth/RegisterResponse.ts';
+import type { RegisterPayload } from '@/common/types/register/RegisterPayload.ts';
+import type { RegisterResponse } from '@/common/types/register/RegisterResponse.ts';
 import api from './base.ts';
 
 export default class RegisterApi {

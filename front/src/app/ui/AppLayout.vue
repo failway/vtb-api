@@ -6,27 +6,44 @@
       <div class="container flex h-16 items-center px-4">
         <AppLogo/>
         <nav class="ml-auto flex items-center space-x-1">
-          <a
-            href="/"
+          <RouterLink
+            to="/"
             class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             :class="$route.path === '/' ? 'bg-accent' : ''"
           >
             Главная
-          </a>
-          <a
-            href="/transactions"
+          </RouterLink>
+          <RouterLink
+            to="/transactions"
             class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             :class="$route.path === '/transactions' ? 'bg-accent' : ''"
           >
             Транзакции
-          </a>
-          <a
-            href="/profile"
+          </RouterLink>
+          <RouterLink
+            to="/profile"
             class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             :class="$route.path === '/profile' ? 'bg-accent' : ''"
           >
             Профиль
-          </a>
+          </RouterLink>
+          <template v-if="authStore.isLoggedIn">
+            <button @click="authStore.logout()" class="btn">Выйти</button>
+          </template>
+          <template v-else>
+            <RouterLink
+              to="/login"
+              class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              Вход
+            </RouterLink>
+            <RouterLink
+              to="/register"
+              class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              Регистрация
+            </RouterLink>
+          </template>
         </nav>
       </div>
     </header>
@@ -56,6 +73,9 @@
 <script setup lang="ts">
 import {useRoute} from 'vue-router'
 import AppLogo from "@/app/ui/AppLogo.vue";
+import { useAuthStore } from '@/store/AuthStore.ts'
 
 const $route = useRoute()
+const authStore = useAuthStore()
+
 </script>

@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { parseApiError } from '@/composables/parseApiError.ts';
 
 export const useFetch = () => {
   const isLoading = ref(false);
@@ -9,14 +10,9 @@ export const useFetch = () => {
     if (resetError) error.value = '';
 
     try {
-      const response = await requestFn();
-      return response;
+      return await requestFn();
     } catch (e: unknown) {
-      if (e instanceof Error) {
-        error.value = e.message || 'Произошла ошибка';
-      } else {
-        error.value = 'Произошла неизвестная ошибка';
-      }
+      error.value = parseApiError(e);
       throw e;
     } finally {
       isLoading.value = false;
