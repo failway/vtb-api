@@ -183,11 +183,18 @@ async def refresh_token(refresh_token: str | None = Cookie(None)):
 #  GET /auth/me — защищённый ресурс
 # ==========================
 @router.get("/me")
-async def read_users_me(token: str = Depends(oauth2_scheme)):
+async def read_users_me(request: Request):
+    # Берём токен из куки
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=402, detail="Токен не найден в куках")
+
+    # Проверяем токен
     payload = verify_token(token, token_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="Недействительный токен")
 
+    # Ищем пользователя
     query = select(users).where(users.c.email == payload["sub"])
     user = await database.fetch_one(query)
     if not user:
