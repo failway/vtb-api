@@ -1,5 +1,5 @@
 # routes/banks.py
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends,  Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, insert, update, and_
 from datetime import datetime, timedelta
@@ -23,16 +23,27 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET", "F1cVm5XwPoWquHf70R9VC8437ofbrQi0")
 
 
 # ---------- AUTH ----------
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+
+async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
+    # 1. Пробуем взять токен из cookie
+    cookie_token = request.cookies.get("access_token")
+
+    # 2. Если в cookie нет, пробуем из header (oauth2_scheme)
+    token = cookie_token or token
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Отсутствует токен пользователя")
+
     payload = verify_token(token, token_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="Недействительный токен пользователя")
+
     q = select(users).where(users.c.email == payload["sub"])
     user = await database.fetch_one(q)
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    return user
 
+    return user
 
 # ---------- DB helpers ----------
 async def get_cached_token(user_id: int, bank: str):
