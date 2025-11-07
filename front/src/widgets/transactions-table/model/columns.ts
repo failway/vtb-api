@@ -7,16 +7,14 @@ import {
   ShoppingCart,
   Utensils,
   Car,
-  Home,
   Briefcase,
   CreditCard,
   Gift,
   Repeat
 } from 'lucide-vue-next'
-import type { Transaction } from '@/entities/transaction/types'
 import TransactionsTableRowActions from '../ui/TransactionsTableRowActions.vue'
+import type {MappedTransaction} from "@/widgets/transactions-table/model/types.ts";
 
-// Функция для форматирования валюты
 const formatCurrency = (amount: number, currency: string) => {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
@@ -24,7 +22,6 @@ const formatCurrency = (amount: number, currency: string) => {
   }).format(amount)
 }
 
-// Иконки для категорий
 const getCategoryIcon = (category: string) => {
   const iconMap: Record<string, any> = {
     'Продукты': ShoppingCart,
@@ -35,11 +32,13 @@ const getCategoryIcon = (category: string) => {
     'Переводы': Repeat,
     'Зарплата': Briefcase,
     'Возвраты': Gift,
+    'Поступление': Briefcase,
+    'Списание': CreditCard
   }
   return iconMap[category] || CreditCard
 }
 
-export const columns: ColumnDef<Transaction>[] = [
+export const columns: ColumnDef<MappedTransaction>[] = [
   {
     id: 'select',
     header: ({ table }) => h(Checkbox, {
@@ -109,11 +108,10 @@ export const columns: ColumnDef<Transaction>[] = [
       const type: 'credit' | 'debit' = row.original.type
       const formatted = formatCurrency(amount, row.original.currency)
 
-      const badge = type === 'credit'
-        ? h('span', { class: 'inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700' }, formatted)
-        : h('span', { class: 'inline-flex items-center rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700' }, formatted)
+      const amountClass = type === 'credit' ? 'text-green-600' : 'text-red-600';
+      const sign = type === 'credit' ? '+' : '-';
 
-      return h('div', { class: 'text-right font-semibold' }, badge)
+      return h('div', { class: `text-right font-semibold ${amountClass}` }, `${sign} ${formatted}`)
     },
   },
   {

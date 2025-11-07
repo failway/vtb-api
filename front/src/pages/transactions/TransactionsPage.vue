@@ -1,65 +1,65 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAccountStore } from '@/store/AccountStore'
 import TransactionsTableWidget from '@/widgets/transactions-table/ui/TransactionsTableWidget.vue'
 import { columns } from '@/widgets/transactions-table/model/columns'
-import type { Transaction } from '@/entities/transaction/types'
+import type { BankName } from '@/entities/account/types'
 import { Button } from '@/components/ui/button'
-import {
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  Download,
-  Calendar,
-  Filter
-} from 'lucide-vue-next'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { TrendingUp, TrendingDown, Wallet, Download } from 'lucide-vue-next'
 
-// Моковые данные
-const data = ref<Transaction[]>([
-  { id: '1', date: '2025-10-28', description: 'Перевод от Ивана П.', amount: 5000, currency: 'RUB', type: 'credit', category: 'Переводы' },
-  { id: '2', date: '2025-10-27', description: 'Оплата в "Пятерочка"', amount: 1250.50, currency: 'RUB', type: 'debit', category: 'Продукты' },
-  { id: '3', date: '2025-10-26', description: 'Подписка Yandex Plus', amount: 299, currency: 'RUB', type: 'debit', category: 'Подписки' },
-  { id: '4', date: '2025-10-25', description: 'Зарплата', amount: 75000, currency: 'RUB', type: 'credit', category: 'Зарплата' },
-  { id: '5', date: '2025-10-24', description: 'Кафе "Шоколадница"', amount: 850, currency: 'RUB', type: 'debit', category: 'Рестораны' },
-  { id: '6', date: '2025-10-23', description: 'Покупка на Ozon', amount: 4300, currency: 'RUB', type: 'debit', category: 'Покупки' },
-  { id: '7', date: '2025-10-22', description: 'Аренда самоката', amount: 150.75, currency: 'RUB', type: 'debit', category: 'Транспорт' },
-  { id: '8', date: '2025-10-21', description: 'Возврат средств от AliExpress', amount: 620, currency: 'RUB', type: 'credit', category: 'Возвраты' },
-])
+const route = useRoute()
+const accountStore = useAccountStore()
 
-const selectedPeriod = ref('month')
-const selectedCategory = ref('all')
+const accountId = ref(route.query.accountId as string || '')
+const bank = ref(route.query.bank as BankName || '')
 
-// Вычисляемые значения для статистики
+
+const transactions = computed(() => accountStore.transactions)
+
 const totalIncome = computed(() => {
-  return data.value
-    .filter(t => t.type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0)
+  return transactions.value
+    .filter(t => t.creditDebitIndicator === 'Credit')
+    .reduce((sum, t) => sum + parseFloat(t.amount.amount), 0)
 })
 
 const totalExpense = computed(() => {
-  return data.value
-    .filter(t => t.type === 'debit')
-    .reduce((sum, t) => sum + t.amount, 0)
+  return transactions.value
+    .filter(t => t.creditDebitIndicator === 'Debit')
+    .reduce((sum, t) => sum + parseFloat(t.amount.amount), 0)
 })
 
 const balance = computed(() => totalIncome.value - totalExpense.value)
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-  }).format(amount)
+const formatCurrency = (amount: number, currency: string = 'RUB') => {
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency }).format(amount)
 }
 
-const categories = computed(() => {
-  const uniqueCategories = [...new Set(data.value.map(t => t.category))]
-  return ['all', ...uniqueCategories]
+const tableData = computed(() => {
+  return transactions.value.map(t => ({
+      id: t.transactionId,
+      date: t.bookingDateTime,
+      description: t.transactionInformation,
+      amount: parseFloat(t.amount.amount),
+      currency: t.amount.currency as 'RUB' | 'USD' | 'EUR',
+      type: t.creditDebitIndicator === 'Credit' ? 'credit' : 'debit',
+      // Категоризация требует отдельной логики, пока используем заглушку
+      category: t.creditDebitIndicator === 'Credit' ? 'Поступление' : 'Списание',
+  }))
 })
 
-const filteredData = computed(() => {
-  if (selectedCategory.value === 'all') {
-    return data.value
+const fetch_transactions = () => {
+  if (accountId.value && bank.value) {
+    accountStore.fetchTransactions(accountId.value, bank.value)
   }
-  return data.value.filter(t => t.category === selectedCategory.value)
+}
+
+onMounted(fetch_transactions)
+watch(() => route.query, (newQuery) => {
+  accountId.value = newQuery.accountId as string || ''
+  bank.value = newQuery.bank as BankName || ''
+  fetch_transactions()
 })
 
 const exportToPDF = () => {
@@ -76,7 +76,7 @@ const exportToPDF = () => {
           История транзакций
         </h1>
         <p class="text-muted-foreground mt-1">
-          Управляйте и анализируйте ваши финансовые операции
+          Счет: <span class="font-medium">{{ accountId }}</span> | Банк: <span class="font-medium uppercase">{{ bank }}</span>
         </p>
       </div>
       <div class="flex gap-2">
@@ -87,13 +87,16 @@ const exportToPDF = () => {
       </div>
     </div>
 
+    <Alert v-if="accountStore.error" variant="destructive">
+      <AlertDescription>{{ accountStore.error }}</AlertDescription>
+    </Alert>
+
     <!-- Карточки статистики -->
-    <div class="grid gap-4 md:grid-cols-3">
-      <!-- Баланс -->
+    <div v-if="!accountStore.isLoadingTransactions && transactions.length > 0" class="grid gap-4 md:grid-cols-3">
       <div class="rounded-lg border bg-card p-6 shadow-sm transition-all hover:shadow-md">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-muted-foreground">Текущий баланс</p>
+            <p class="text-sm font-medium text-muted-foreground">Сальдо за период</p>
             <h3 class="text-2xl font-bold mt-2" :class="balance >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatCurrency(balance) }}
             </h3>
@@ -102,13 +105,7 @@ const exportToPDF = () => {
             <Wallet class="h-6 w-6 text-primary" />
           </div>
         </div>
-        <div class="mt-4 flex items-center text-xs text-muted-foreground">
-          <Calendar class="mr-1 h-3 w-3" />
-          За текущий период
-        </div>
       </div>
-
-      <!-- Доходы -->
       <div class="rounded-lg border bg-card p-6 shadow-sm transition-all hover:shadow-md">
         <div class="flex items-center justify-between">
           <div>
@@ -117,17 +114,11 @@ const exportToPDF = () => {
               {{ formatCurrency(totalIncome) }}
             </h3>
           </div>
-          <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+           <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
             <TrendingUp class="h-6 w-6 text-green-600" />
           </div>
         </div>
-        <div class="mt-4 flex items-center text-xs text-green-600">
-          <TrendingUp class="mr-1 h-3 w-3" />
-          {{ data.filter(t => t.type === 'credit').length }} транзакций
-        </div>
       </div>
-
-      <!-- Расходы -->
       <div class="rounded-lg border bg-card p-6 shadow-sm transition-all hover:shadow-md">
         <div class="flex items-center justify-between">
           <div>
@@ -136,71 +127,22 @@ const exportToPDF = () => {
               {{ formatCurrency(totalExpense) }}
             </h3>
           </div>
-          <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+           <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
             <TrendingDown class="h-6 w-6 text-red-600" />
           </div>
-        </div>
-        <div class="mt-4 flex items-center text-xs text-red-600">
-          <TrendingDown class="mr-1 h-3 w-3" />
-          {{ data.filter(t => t.type === 'debit').length }} транзакций
-        </div>
-      </div>
-    </div>
-
-    <!-- Фильтры -->
-    <div class="rounded-lg border bg-card p-4 shadow-sm">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div class="flex items-center gap-2">
-          <Filter class="h-4 w-4 text-muted-foreground" />
-          <span class="text-sm font-medium">Фильтры:</span>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <!-- Период -->
-          <div class="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              :class="selectedPeriod === 'week' ? 'bg-primary text-primary-foreground' : ''"
-              @click="selectedPeriod = 'week'"
-            >
-              Неделя
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              :class="selectedPeriod === 'month' ? 'bg-primary text-primary-foreground' : ''"
-              @click="selectedPeriod = 'month'"
-            >
-              Месяц
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              :class="selectedPeriod === 'year' ? 'bg-primary text-primary-foreground' : ''"
-              @click="selectedPeriod = 'year'"
-            >
-              Год
-            </Button>
-          </div>
-
-          <!-- Категории -->
-          <select
-            v-model="selectedCategory"
-            class="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="all">Все категории</option>
-            <option v-for="category in categories.slice(1)" :key="category" :value="category">
-              {{ category }}
-            </option>
-          </select>
         </div>
       </div>
     </div>
 
     <!-- Таблица транзакций -->
     <div class="rounded-lg border bg-card shadow-sm">
-      <TransactionsTableWidget :columns="columns" :data="filteredData" />
+        <div v-if="accountStore.isLoadingTransactions" class="text-center py-20 text-muted-foreground">
+            Загрузка транзакций...
+        </div>
+         <div v-else-if="!accountId || !bank" class="text-center py-20 text-muted-foreground">
+            <p>Выберите счет для просмотра транзакций.</p>
+        </div>
+        <TransactionsTableWidget v-else :columns="columns" :data="tableData" />
     </div>
   </div>
 </template>

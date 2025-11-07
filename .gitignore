@@ -13,3 +13,6 @@ node_modules/
 *.pid
 *.sock
 .env
+
+*.bat
+combined_output.txt
