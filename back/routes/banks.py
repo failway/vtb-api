@@ -32,7 +32,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     token = cookie_token or token
 
     if not token:
-        raise HTTPException(status_code=401, detail="Отсутствует токен пользователя")
+        raise HTTPException(status_code=402, detail="Отсутствует токен пользователя")
 
     payload = verify_token(token, token_type="access")
     if not payload:
