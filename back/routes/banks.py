@@ -1,5 +1,5 @@
 # routes/banks.py
-from fastapi import APIRouter, HTTPException, Depends,  Request
+from fastapi import APIRouter, HTTPException, Depends,  Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, insert, update, and_
 from datetime import datetime, timedelta
@@ -10,7 +10,6 @@ from db.db import database
 from utils.jwt import verify_token
 
 router = APIRouter(prefix="/banks", tags=["Banks"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 BANK_URLS = {
     "vbank": "https://vbank.open.bankingapi.ru",
@@ -24,19 +23,28 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET", "F1cVm5XwPoWquHf70R9VC8437ofbrQi0")
 
 # ---------- AUTH ----------
 
-async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
+async def get_current_user(request: Request):
     # 1. Пробуем взять токен из cookie
-    cookie_token = request.cookies.get("access_token")
+    token = request.cookies.get("access_token")
 
-    # 2. Если в cookie нет, пробуем из header (oauth2_scheme)
-    token = cookie_token or token
+    # 2. Если в cookie нет — пробуем из заголовка Authorization
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
 
     if not token:
-        raise HTTPException(status_code=402, detail="Отсутствует токен пользователя")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Отсутствует токен пользователя",
+        )
 
     payload = verify_token(token, token_type="access")
     if not payload:
-        raise HTTPException(status_code=401, detail="Недействительный токен пользователя")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный токен пользователя",
+        )
 
     q = select(users).where(users.c.email == payload["sub"])
     user = await database.fetch_one(q)
@@ -234,7 +242,6 @@ async def get_bank_status(bank: str, user=Depends(get_current_user)):
             "status": "not_connected",
             "connected": False
         }
-
     consent_id = record["consent_id"] or record["req_id"]
     local_status = record["status"]
 
@@ -245,7 +252,6 @@ async def get_bank_status(bank: str, user=Depends(get_current_user)):
     }
 
     url = f"{BANK_URLS[bank]}/account-consents/{consent_id}"
-
     try:
         async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
             resp = await client.get(url, headers=headers)
@@ -263,7 +269,6 @@ async def get_bank_status(bank: str, user=Depends(get_current_user)):
 
     if resp.status_code != 200:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
-
     data = resp.json().get("data", {})
     new_status = data.get("status", local_status)
     new_consent_id = data.get("consentId", consent_id)

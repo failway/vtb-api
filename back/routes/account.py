@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Path, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 import httpx
@@ -12,21 +12,31 @@ from utils.jwt import verify_token
 from routes.banks import get_or_refresh_token, BANK_URLS, CLIENT_ID
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 # ---------- Авторизация ----------
-async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
-    """Получает токен из cookie или header, проверяет JWT и достаёт пользователя."""
-    cookie_token = request.cookies.get("access_token")
-    token = cookie_token or token
+async def get_current_user(request: Request):
+    # 1. Пробуем взять токен из cookie
+    token = request.cookies.get("access_token")
+
+    # 2. Если в cookie нет — пробуем из заголовка Authorization
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
 
     if not token:
-        raise HTTPException(status_code=401, detail="Отсутствует токен пользователя")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Отсутствует токен пользователя",
+        )
 
     payload = verify_token(token, token_type="access")
     if not payload:
-        raise HTTPException(status_code=401, detail="Недействительный токен доступа")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный токен пользователя",
+        )
 
     q = select(users).where(users.c.email == payload["sub"])
     user = await database.fetch_one(q)
