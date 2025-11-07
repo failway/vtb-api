@@ -13,21 +13,15 @@ export default class AuthApi {
     })
   }
 
-  static async logout(token: string) {
-    return api.post('auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+  static async logout() {
+    return api.post('auth/logout')
   }
 
-  static async getProfile(token: string) {
-    return api.get('auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+  static async getProfile() {
+    return api.get('auth/me')
   }
 
-  static async refreshToken(token: string) {
-    return api.post('auth/refresh', {}, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+  static async refreshToken() {
+    return api.post('auth/refresh')
   }
 }
