@@ -19,9 +19,14 @@ export const useChatStore = defineStore('chat', () => {
   const isOpen = ref(false)
 
   const getStorageKey = (key: string): string => {
-    const userId = authStore.user?.id || 'anonymous'
+    const userId = authStore.user?.id
+    if (!userId) {
+      console.warn('No user ID available for storage key')
+      return `chat_anonymous_${key}`
+    }
     return `chat_${userId}_${key}`
   }
+
 
   const hasUnreadMessages = computed(() =>
     Object.values(bankChats.value).some(chat =>
@@ -43,6 +48,11 @@ export const useChatStore = defineStore('chat', () => {
 
   const loadFromStorage = () => {
     try {
+      const currentUserId = authStore.user?.id
+      if (!currentUserId) {
+        console.log('No user ID, skipping localStorage load')
+        return
+      }
       const savedBank = localStorage.getItem(getStorageKey('chatSelectedBank'))
       if (savedBank) {
         selectedBank.value = savedBank
@@ -80,6 +90,11 @@ export const useChatStore = defineStore('chat', () => {
 
   const saveToStorage = () => {
     try {
+      const currentUserId = authStore.user?.id
+      if (!currentUserId) {
+        console.warn('No user ID, skipping localStorage save')
+        return
+      }
       localStorage.setItem(getStorageKey('chatSelectedBank'), selectedBank.value)
       localStorage.setItem(getStorageKey('chatIsOpen'), JSON.stringify(isOpen.value))
       localStorage.setItem(getStorageKey('bankChats'), JSON.stringify(bankChats.value))
@@ -90,6 +105,9 @@ export const useChatStore = defineStore('chat', () => {
 
   const clearStorage = () => {
     try {
+      const currentUserId = authStore.user?.id
+      if (!currentUserId) return
+
       localStorage.removeItem(getStorageKey('bankChats'))
       localStorage.removeItem(getStorageKey('chatIsOpen'))
       localStorage.removeItem(getStorageKey('chatSelectedBank'))
@@ -236,9 +254,11 @@ export const useChatStore = defineStore('chat', () => {
     () => authStore.user?.id,
     async (newUserId, oldUserId) => {
       if (newUserId !== oldUserId) {
+        console.log('User changed, resetting chat data:', { oldUserId, newUserId })
         await resetOnUserChange()
       }
-    }
+    },
+    { immediate: true }
   )
 
 

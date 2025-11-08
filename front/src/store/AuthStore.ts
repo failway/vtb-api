@@ -7,6 +7,7 @@ import type { LoginPayload } from '@/common/types/auth/LoginPayload.ts'
 import { parseApiError } from '@/composables/parseApiError.ts'
 import type {UserProfile} from "@/common/types/auth/UserProfile.ts";
 import { useChatStore } from './ChatStore.ts'
+import { useAccountStore } from './AccountStore.ts'
 
 
 
@@ -48,6 +49,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   const login = async (payload: LoginPayload) => {
     try {
+      const chatStore = useChatStore()
+      const accountStore = useAccountStore()
+      chatStore.$reset()
+      accountStore.$reset()
+
       await makeRequest(() => AuthApi.login(payload))
       isAuthenticated.value = true
       error.value = ''
@@ -117,7 +123,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   const forceLogout = async () => {
     const chatStore = useChatStore()
+    const accountStore = useAccountStore()
+
     chatStore.resetOnLogout()
+    accountStore.$reset()
+
     $reset()
     await router.push('/login')
   }

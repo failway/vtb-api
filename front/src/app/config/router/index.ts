@@ -29,6 +29,12 @@ const router = createRouter({
       component: () => import('@/pages/auth/RegisterPage.vue'),
       meta: { layout: 'auth', requiresGuest: true }
     },
+    {
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('@/pages/profile/ProfilePage.vue'),
+      meta: { requiresAuth: true }
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' }
 
   ],

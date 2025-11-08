@@ -27,6 +27,8 @@ export const useAccountStore = defineStore('accounts', () => {
 
   const isLoadingStatuses = ref(false)
   const isLoadingTransactions = ref(false)
+  const isInitialized = ref(false)
+
   const connectingBank = ref<BankName | null>(null)
   const error = ref<string | null>(null)
 
@@ -158,7 +160,35 @@ export const useAccountStore = defineStore('accounts', () => {
     error.value = null
     isDetailsModalOpen.value = false
     transactionForDetails.value = null
+    isInitialized.value = false
     console.log('[Store] Состояние счетов сброшено.')
+  }
+  async function fetchProfileData() {
+    await fetchBankStatuses()
+    const accountPromises = connectedBanks.value.map(bank => fetchAccountsForBank(bank.name))
+    await Promise.all(accountPromises)
+  }
+
+  async function initializeAccounts() {
+    if (isInitialized.value) return
+
+    isLoadingStatuses.value = true
+    try {
+      await fetchBankStatuses()
+
+      // Загружаем счета для подключенных банков
+      const connectedBanksList = connectedBanks.value
+      const accountPromises = connectedBanksList.map(bank =>
+        fetchAccountsForBank(bank.name)
+      )
+      await Promise.all(accountPromises)
+
+      isInitialized.value = true
+    } catch (error) {
+      console.error('Error initializing accounts:', error)
+    } finally {
+      isLoadingStatuses.value = false
+    }
   }
 
   return {
@@ -174,11 +204,14 @@ export const useAccountStore = defineStore('accounts', () => {
     transactionForDetails,
     fetchBankStatuses,
     fetchAccountsForBank,
+    isInitialized,
     fetchAllAccounts,
     fetchTransactions,
     connectBank,
     showTransactionDetails,
     hideTransactionDetails,
-    $reset
+    $reset,
+    fetchProfileData,
+    initializeAccounts
   }
 })
