@@ -9,15 +9,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Transaction } from '@/entities/transaction/types'
+import type { MappedTransaction } from '@/widgets/transactions-table/model/types'
+import { useAccountStore } from '@/store/AccountStore'
 
 defineProps<{
-  transaction: Transaction
+  transaction: MappedTransaction
 }>()
+
+const accountStore = useAccountStore()
 
 function copy(id: string) {
   navigator.clipboard.writeText(id)
-  // Можно добавить уведомление (toast) об успешном копировании
   alert(`ID транзакции скопирован: ${id}`)
 }
 </script>
@@ -36,8 +38,9 @@ function copy(id: string) {
         Копировать ID
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem>Посмотреть детали</DropdownMenuItem>
-      <DropdownMenuItem>Изменить категорию</DropdownMenuItem>
+      <DropdownMenuItem @click="accountStore.showTransactionDetails(transaction.id)">
+        Посмотреть детали
+      </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 </template>

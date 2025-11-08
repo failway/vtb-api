@@ -22,14 +22,11 @@ export const useAccountStore = defineStore('accounts', () => {
 
   const transactions = ref<Transaction[]>([])
   const currentTransactionData = ref<TransactionData | null>(null)
+  const isDetailsModalOpen = ref(false)
+  const transactionForDetails = ref<Transaction | null>(null)
 
   const isLoadingStatuses = ref(false)
   const isLoadingTransactions = ref(false)
-  /**
-   * Хранит название банка, который находится в процессе подключения.
-   * Null, если процесс не идет. Используется для отображения состояния загрузки на кнопке.
-   * @type {import('vue').Ref<BankName | null>}
-   */
   const connectingBank = ref<BankName | null>(null)
   const error = ref<string | null>(null)
 
@@ -37,11 +34,6 @@ export const useAccountStore = defineStore('accounts', () => {
     Object.values(banks.value).filter((b) => b.status === 'connected')
   )
 
-  /**
-   * Запрашивает и обновляет статус для одного конкретного банка.
-   * @param {BankName} bankName - Название банка.
-   * @returns {Promise<void>}
-   */
   async function fetchBankStatus(bankName: BankName) {
     try {
       const { data } = await AccountApi.getBankStatus(bankName)
@@ -50,14 +42,9 @@ export const useAccountStore = defineStore('accounts', () => {
     } catch (e) {
       banks.value[bankName].status = 'disconnected'
       console.error(`[Store] Ошибка загрузки статуса для ${bankName}:`, parseApiError(e))
-      // Не устанавливаем глобальную ошибку, чтобы не мешать другим банкам
     }
   }
 
-  /**
-   * Запрашивает статусы всех банков из списка ALL_BANKS.
-   * @returns {Promise<void>}
-   */
   async function fetchBankStatuses() {
     isLoadingStatuses.value = true
     error.value = null
@@ -68,13 +55,6 @@ export const useAccountStore = defineStore('accounts', () => {
     console.log('[Store] Загрузка статусов банков завершена')
   }
 
-  /**
-   * Управляет процессом подключения банка. Устанавливает состояние загрузки,
-   * вызывает API для создания согласия, обновляет статус банка и, в случае успеха,
-   * загружает список счетов для этого банка.
-   * @param {BankName} bankName - Название банка для подключения.
-   * @returns {Promise<void>}
-   */
   async function connectBank(bankName: BankName) {
     connectingBank.value = bankName;
     error.value = null;
@@ -86,7 +66,6 @@ export const useAccountStore = defineStore('accounts', () => {
       if (banks.value[bankName].status === 'connected') {
         await fetchAccountsForBank(bankName);
       } else {
-        // Для sbank может потребоваться ручное подтверждение
         console.log(`[Store] Банк ${bankName} требует подтверждения. Статус: ${banks.value[bankName].status}`);
       }
     } catch(e) {
@@ -109,7 +88,6 @@ export const useAccountStore = defineStore('accounts', () => {
 
     try {
       const { data } = await AccountApi.getAccounts(bankName)
-      // Дополнительная проверка структуры данных для предотвращения ошибок
       const validAccounts = data.accounts ? data.accounts.filter(acc => acc && typeof acc === 'object') : [];
       banks.value[bankName].accounts = validAccounts as Account[];
       console.log(`[Store] Для банка ${bankName} загружено ${validAccounts.length} счетов.`)
@@ -147,6 +125,22 @@ export const useAccountStore = defineStore('accounts', () => {
     }
   }
 
+  function showTransactionDetails(transactionId: string) {
+    const found = transactions.value.find(t => t.transactionId === transactionId);
+    if (found) {
+      transactionForDetails.value = found;
+      isDetailsModalOpen.value = true;
+      console.log('[Store] Отображение деталей для транзакции:', found);
+    } else {
+      console.error(`[Store] Транзакция с ID ${transactionId} не найдена.`);
+    }
+  }
+
+  function hideTransactionDetails() {
+    isDetailsModalOpen.value = false;
+    transactionForDetails.value = null;
+  }
+
   function $reset() {
     ALL_BANKS.forEach(name => {
       banks.value[name] = {
@@ -162,6 +156,8 @@ export const useAccountStore = defineStore('accounts', () => {
     isLoadingTransactions.value = false
     connectingBank.value = null
     error.value = null
+    isDetailsModalOpen.value = false
+    transactionForDetails.value = null
     console.log('[Store] Состояние счетов сброшено.')
   }
 
@@ -174,11 +170,15 @@ export const useAccountStore = defineStore('accounts', () => {
     connectingBank,
     error,
     connectedBanks,
+    isDetailsModalOpen,
+    transactionForDetails,
     fetchBankStatuses,
     fetchAccountsForBank,
     fetchAllAccounts,
     fetchTransactions,
     connectBank,
+    showTransactionDetails,
+    hideTransactionDetails,
     $reset
   }
 })
