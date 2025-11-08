@@ -6,6 +6,8 @@ import { useFetch } from '@/composables/useFetch.ts'
 import type { LoginPayload } from '@/common/types/auth/LoginPayload.ts'
 import { parseApiError } from '@/composables/parseApiError.ts'
 import type {UserProfile} from "@/common/types/auth/UserProfile.ts";
+import { useChatStore } from './ChatStore.ts'
+
 
 
 export const useAuthStore = defineStore('auth', () => {
@@ -65,6 +67,9 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e) {
       console.warn('Ошибка выхода', e)
     } finally {
+      const chatStore = useChatStore()
+      chatStore.resetOnLogout()
+
       await forceLogout();
     }
   }
@@ -111,6 +116,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const forceLogout = async () => {
+    const chatStore = useChatStore()
+    chatStore.resetOnLogout()
     $reset()
     await router.push('/login')
   }

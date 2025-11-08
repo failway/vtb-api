@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import ChatApi from '@/api/ChatApi.ts'
 import { useFetch } from '@/composables/useFetch.ts'
 import { parseApiError } from '@/composables/parseApiError.ts'
@@ -17,6 +17,11 @@ export const useChatStore = defineStore('chat', () => {
   const { isLoading, error, makeRequest } = useFetch()
   const authStore = useAuthStore()
   const isOpen = ref(false)
+
+  const getStorageKey = (key: string): string => {
+    const userId = authStore.user?.id || 'anonymous'
+    return `chat_${userId}_${key}`
+  }
 
   const hasUnreadMessages = computed(() =>
     Object.values(bankChats.value).some(chat =>
@@ -38,17 +43,17 @@ export const useChatStore = defineStore('chat', () => {
 
   const loadFromStorage = () => {
     try {
-      const savedBank = localStorage.getItem('chatSelectedBank')
+      const savedBank = localStorage.getItem(getStorageKey('chatSelectedBank'))
       if (savedBank) {
         selectedBank.value = savedBank
       }
 
-      const savedIsOpen = localStorage.getItem('chatIsOpen')
+      const savedIsOpen = localStorage.getItem(getStorageKey('chatIsOpen'))
       if (savedIsOpen) {
         isOpen.value = JSON.parse(savedIsOpen)
       }
 
-      const savedChats = localStorage.getItem('bankChats')
+      const savedChats = localStorage.getItem(getStorageKey('bankChats'))
       if (savedChats) {
         const parsedChats = JSON.parse(savedChats)
 
@@ -75,9 +80,9 @@ export const useChatStore = defineStore('chat', () => {
 
   const saveToStorage = () => {
     try {
-      localStorage.setItem('chatSelectedBank', selectedBank.value)
-      localStorage.setItem('chatIsOpen', JSON.stringify(isOpen.value))
-      localStorage.setItem('bankChats', JSON.stringify(bankChats.value))
+      localStorage.setItem(getStorageKey('chatSelectedBank'), selectedBank.value)
+      localStorage.setItem(getStorageKey('chatIsOpen'), JSON.stringify(isOpen.value))
+      localStorage.setItem(getStorageKey('bankChats'), JSON.stringify(bankChats.value))
     } catch (e) {
       console.warn('Не удалось сохранить данные в localStorage:', e)
     }
@@ -85,9 +90,9 @@ export const useChatStore = defineStore('chat', () => {
 
   const clearStorage = () => {
     try {
-      localStorage.removeItem('bankChats')
-      localStorage.removeItem('chatIsOpen')
-      localStorage.removeItem('chatSelectedBank')
+      localStorage.removeItem(getStorageKey('bankChats'))
+      localStorage.removeItem(getStorageKey('chatIsOpen'))
+      localStorage.removeItem(getStorageKey('chatSelectedBank'))
     } catch (e) {
       console.warn('Не удалось очистить данные из localStorage:', e)
     }
@@ -189,6 +194,9 @@ export const useChatStore = defineStore('chat', () => {
   const toggleChat = () => {
     isOpen.value = !isOpen.value
     saveToStorage()
+    if (isOpen.value && authStore.user?.id) {
+      loadHistory()
+    }
   }
 
   const setSelectedBank = (bank: string) => {
@@ -201,6 +209,18 @@ export const useChatStore = defineStore('chat', () => {
     saveToStorage()
   }
 
+  const resetOnUserChange = async () => {
+    $reset()
+    loadFromStorage()
+    if (authStore.user?.id) {
+      await loadHistory()
+    }
+  }
+  const resetOnLogout = () => {
+    $reset()
+    clearStorage()
+  }
+
   const $reset = () => {
     bankChats.value = {
       vbank: { messages: [] },
@@ -210,8 +230,18 @@ export const useChatStore = defineStore('chat', () => {
     selectedBank.value = 'vbank'
     isOpen.value = false
     error.value = ''
-    clearStorage()
   }
+
+  watch(
+    () => authStore.user?.id,
+    async (newUserId, oldUserId) => {
+      if (newUserId !== oldUserId) {
+        await resetOnUserChange()
+      }
+    }
+  )
+
+
   loadFromStorage()
 
   return {
@@ -227,6 +257,8 @@ export const useChatStore = defineStore('chat', () => {
     clearChat,
     toggleChat,
     setSelectedBank,
-    $reset
+    $reset,
+    resetOnUserChange,
+    resetOnLogout
   }
 })
