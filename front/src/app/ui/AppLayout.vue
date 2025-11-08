@@ -71,6 +71,8 @@
     <main class="container flex-1 py-6 px-4">
       <slot />
     </main>
+
+    <ChatWidget />
   </div>
 </template>
 
@@ -79,6 +81,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/store/AuthStore'
 import { Button } from '@/components/ui/button'
 import { Menu, Bell, Sun } from 'lucide-vue-next'
+import ChatWidget from '@/widgets/chat/ui/ChatWidget.vue'
 
 const $route = useRoute()
 const authStore = useAuthStore()

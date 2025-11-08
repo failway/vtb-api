@@ -7,4 +7,5 @@ export interface UserProfile {
   company_name?: string
   inn?: string
   kpp?: string
+  premium?: boolean
 }
