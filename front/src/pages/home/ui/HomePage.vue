@@ -1,32 +1,34 @@
 <template>
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-3xl font-bold tracking-tight">
-        Мои счета
-      </h1>
-      <p class="text-muted-foreground mt-1">
-        Обзор ваших счетов в подключенных банках.
-      </p>
+  <div class="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <!-- Левая колонка -->
+    <div class="lg:col-span-1 xl:col-span-1 space-y-6">
+      <BanksWidget />
+      <PromoCards />
     </div>
 
-    <Alert v-if="accountStore.error" variant="destructive">
-      <AlertDescription>{{ accountStore.error }}</AlertDescription>
-    </Alert>
-
-    <AccountsWidget />
+    <!-- Правая колонка -->
+    <div class="lg:col-span-2 xl:col-span-3">
+      <MapWidget />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useAccountStore } from '@/store/AccountStore'
-import AccountsWidget from '@/widgets/accounts/ui/AccountsWidget.vue'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { onMounted } from 'vue';
+import { useAccountStore } from '@/store/AccountStore';
+import BanksWidget from '@/widgets/banks/ui/BanksWidget.vue';
+import PromoCards from '@/widgets/promo/ui/PromoCards.vue';
+import MapWidget from '@/widgets/map/ui/MapWidget.vue';
 
-const accountStore = useAccountStore()
+const accountStore = useAccountStore();
 
 onMounted(() => {
-  console.log('[HomePage] Компонент смонтирован, запускаю загрузку счетов.')
-  accountStore.fetchAllAccounts()
-})
+  const hasAccounts = Object.values(accountStore.banks).some(b => b.accounts.length > 0);
+  if (!hasAccounts) {
+    console.log('[HomePage] Данные о счетах отсутствуют, запускаю загрузку.');
+    accountStore.fetchAllAccounts();
+  } else {
+    console.log('[HomePage] Данные о счетах уже есть, пропускаю загрузку.');
+  }
+});
 </script>
