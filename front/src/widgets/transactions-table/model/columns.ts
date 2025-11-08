@@ -10,7 +10,8 @@ import {
   Briefcase,
   CreditCard,
   Gift,
-  Repeat
+  Repeat,
+  Building,
 } from 'lucide-vue-next'
 import TransactionsTableRowActions from '../ui/TransactionsTableRowActions.vue'
 import type {MappedTransaction} from "@/widgets/transactions-table/model/types.ts";
@@ -33,7 +34,10 @@ const getCategoryIcon = (category: string) => {
     'Зарплата': Briefcase,
     'Возвраты': Gift,
     'Поступление': Briefcase,
-    'Списание': CreditCard
+    'Списание': CreditCard,
+    'cafe': Utensils,
+    'grocery': ShoppingCart,
+    'business': Building
   }
   return iconMap[category] || CreditCard
 }
@@ -76,10 +80,23 @@ export const columns: ColumnDef<MappedTransaction>[] = [
     accessorKey: 'description',
     header: 'Описание',
     cell: ({ row }) => {
-      return h('div', { class: 'max-w-[300px]' }, [
-        h('div', { class: 'font-medium truncate' }, row.getValue('description')),
-        h('div', { class: 'text-xs text-muted-foreground' }, `ID: ${row.original.id}`)
-      ])
+      const { merchantName, description, cardInfo } = row.original
+      const mainText = merchantName || description
+      const subText = merchantName && description !== merchantName ? description : `ID: ${row.original.id}`
+
+      const children = [
+        h('div', { class: 'font-medium truncate' }, mainText),
+        h('div', { class: 'text-xs text-muted-foreground truncate' }, subText)
+      ];
+
+      if (cardInfo) {
+        children.push(h('div', { class: 'flex items-center gap-1 text-xs text-muted-foreground mt-1' }, [
+          h(CreditCard, { class: 'h-3 w-3 shrink-0' }),
+          h('span', `${cardInfo.name} ${cardInfo.number}`)
+        ]));
+      }
+
+      return h('div', { class: 'max-w-[300px]' }, children);
     },
   },
   {

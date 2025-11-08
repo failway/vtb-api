@@ -1,6 +1,25 @@
+export interface Merchant {
+  merchantId: string
+  name: string
+  mccCode: string
+  category: string
+  address: string
+  city: string
+  country: string
+}
+
+export interface Card {
+  cardId: string
+  cardName: string
+  cardNumber: string
+  cardType: 'debit' | 'credit'
+}
+
 export interface Transaction {
+  accountId: string
   transactionId: string
   bookingDateTime: string
+  valueDateTime?: string
   transactionInformation: string
   amount: {
     amount: string
@@ -8,4 +27,10 @@ export interface Transaction {
   }
   creditDebitIndicator: 'Credit' | 'Debit'
   status: string
+  bankTransactionCode?: {
+    code: string
+  }
+  merchant: Merchant | null
+  card?: Card
+  counterparty: any | null
 }

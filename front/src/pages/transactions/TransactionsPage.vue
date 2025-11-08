@@ -8,13 +8,13 @@ import type { BankName } from '@/entities/account/types'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { TrendingUp, TrendingDown, Wallet, Download } from 'lucide-vue-next'
+import type { MappedTransaction } from '@/widgets/transactions-table/model/types'
 
 const route = useRoute()
 const accountStore = useAccountStore()
 
 const accountId = ref(route.query.accountId as string || '')
 const bank = ref(route.query.bank as BankName || '')
-
 
 const transactions = computed(() => accountStore.transactions)
 
@@ -36,27 +36,46 @@ const formatCurrency = (amount: number, currency: string = 'RUB') => {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency }).format(amount)
 }
 
-const tableData = computed(() => {
+const getCategoryName = (category: string | undefined, indicator: 'Credit' | 'Debit'): string => {
+  if (category) {
+    const categoryMap: Record<string, string> = {
+      grocery: 'Продукты',
+      cafe: 'Рестораны',
+    }
+    return categoryMap[category] || category
+  }
+  if (indicator === 'Credit') return 'Поступление'
+  return 'Списание'
+}
+
+const tableData = computed((): MappedTransaction[] => {
+  console.log('[TransactionsPage] Recalculating tableData based on transactions:', transactions.value)
+  if (!transactions.value) return []
   return transactions.value.map(t => ({
-      id: t.transactionId,
-      date: t.bookingDateTime,
-      description: t.transactionInformation,
-      amount: parseFloat(t.amount.amount),
-      currency: t.amount.currency as 'RUB' | 'USD' | 'EUR',
-      type: t.creditDebitIndicator === 'Credit' ? 'credit' : 'debit',
-      // Категоризация требует отдельной логики, пока используем заглушку
-      category: t.creditDebitIndicator === 'Credit' ? 'Поступление' : 'Списание',
+    id: t.transactionId,
+    date: t.bookingDateTime,
+    description: t.transactionInformation,
+    merchantName: t.merchant?.name,
+    cardInfo: t.card ? { name: t.card.cardName, number: t.card.cardNumber } : undefined,
+    amount: parseFloat(t.amount.amount),
+    currency: t.amount.currency as 'RUB' | 'USD' | 'EUR',
+    type: t.creditDebitIndicator === 'Credit' ? 'credit' : 'debit',
+    category: getCategoryName(t.merchant?.category, t.creditDebitIndicator),
   }))
 })
 
 const fetch_transactions = () => {
   if (accountId.value && bank.value) {
+    console.log(`[TransactionsPage] Fetching transactions for account ${accountId.value}`)
     accountStore.fetchTransactions(accountId.value, bank.value)
+  } else {
+    console.warn('[TransactionsPage] AccountId or Bank is missing, skipping fetch.')
   }
 }
 
 onMounted(fetch_transactions)
 watch(() => route.query, (newQuery) => {
+  console.log('[TransactionsPage] Route query changed:', newQuery)
   accountId.value = newQuery.accountId as string || ''
   bank.value = newQuery.bank as BankName || ''
   fetch_transactions()
@@ -114,7 +133,7 @@ const exportToPDF = () => {
               {{ formatCurrency(totalIncome) }}
             </h3>
           </div>
-           <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+          <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
             <TrendingUp class="h-6 w-6 text-green-600" />
           </div>
         </div>
@@ -127,7 +146,7 @@ const exportToPDF = () => {
               {{ formatCurrency(totalExpense) }}
             </h3>
           </div>
-           <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+          <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
             <TrendingDown class="h-6 w-6 text-red-600" />
           </div>
         </div>
@@ -136,13 +155,13 @@ const exportToPDF = () => {
 
     <!-- Таблица транзакций -->
     <div class="rounded-lg border bg-card shadow-sm">
-        <div v-if="accountStore.isLoadingTransactions" class="text-center py-20 text-muted-foreground">
-            Загрузка транзакций...
-        </div>
-         <div v-else-if="!accountId || !bank" class="text-center py-20 text-muted-foreground">
-            <p>Выберите счет для просмотра транзакций.</p>
-        </div>
-        <TransactionsTableWidget v-else :columns="columns" :data="tableData" />
+      <div v-if="accountStore.isLoadingTransactions" class="text-center py-20 text-muted-foreground">
+        Загрузка транзакций...
+      </div>
+      <div v-else-if="!accountId || !bank" class="text-center py-20 text-muted-foreground">
+        <p>Выберите счет для просмотра транзакций.</p>
+      </div>
+      <TransactionsTableWidget v-else :columns="columns" :data="tableData" />
     </div>
   </div>
 </template>
