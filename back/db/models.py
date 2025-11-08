@@ -51,6 +51,17 @@ bank_consents = Table(
     Column("created_at", DateTime, default=datetime.utcnow),
 )
 
+# ---------- AI Чат ---------
+ai_chat = Table(
+    "ai_chat",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("role", String(10), nullable=False, server_default="user"),  # "user" | "assistant"
+    Column("message", Text, nullable=False),
+    Column("session_id", String(64), nullable=True),  # для чатов по темам/контекстам
+    Column("created_at", DateTime, server_default=func.now()),
+)
 
 # Создание всех таблиц, если их ещё нет
 # metadata.create_all(engine)

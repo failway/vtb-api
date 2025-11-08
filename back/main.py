@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from utils.events import attach_db_events
-from routes import auth, banks, account
+from routes import auth, banks, account,chat
 
 app = FastAPI(title="MapTrack API", version="0.1.0")
 
@@ -27,6 +27,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(banks.router)
 app.include_router(account.router)
+app.include_router(chat.router)
 
 @app.get("/")
 def root():
