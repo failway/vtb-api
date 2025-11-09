@@ -21,6 +21,8 @@ export const useAccountStore = defineStore('accounts', () => {
   )
 
   const transactions = ref<Transaction[]>([])
+  const allTransactions = ref<Transaction[]>([])
+  const isLoadingAllTransactions = ref(false)
   const currentTransactionData = ref<TransactionData | null>(null)
   const isDetailsModalOpen = ref(false)
   const transactionForDetails = ref<Transaction | null>(null)
@@ -127,6 +129,42 @@ export const useAccountStore = defineStore('accounts', () => {
     }
   }
 
+  // <-- Новая функция
+  async function fetchAllTransactionsForAllAccounts() {
+    if (allTransactions.value.length > 0) {
+      console.log('[Store] Все транзакции уже загружены, пропуск.');
+      return;
+    }
+    isLoadingAllTransactions.value = true;
+    error.value = null;
+    console.log('[Store] Начало загрузки всех транзакций по всем счетам.');
+
+    try {
+      const allAccounts = Object.values(banks.value)
+        .filter(b => b.status === 'connected')
+        .flatMap(b => b.accounts.map(acc => ({ ...acc, bankName: b.name })));
+
+      const transactionPromises = allAccounts.map(account =>
+        AccountApi.getTransactions(account.accountId, account.bankName)
+          .then(res => res.data.transactions)
+          .catch(e => {
+            console.error(`Не удалось загрузить транзакции для счета ${account.accountId}:`, e);
+            return []; // Возвращаем пустой массив в случае ошибки
+          })
+      );
+
+      const transactionsByAccount = await Promise.all(transactionPromises);
+      allTransactions.value = transactionsByAccount.flat();
+      console.log(`[Store] Всего загружено ${allTransactions.value.length} транзакций.`);
+    } catch (e) {
+      error.value = parseApiError(e);
+      console.error('[Store] Ошибка при загрузке всех транзакций:', error.value);
+    } finally {
+      isLoadingAllTransactions.value = false;
+    }
+  }
+
+
   function showTransactionDetails(transactionId: string) {
     const found = transactions.value.find(t => t.transactionId === transactionId);
     if (found) {
@@ -153,9 +191,11 @@ export const useAccountStore = defineStore('accounts', () => {
       }
     })
     transactions.value = []
+    allTransactions.value = []
     currentTransactionData.value = null
     isLoadingStatuses.value = false
     isLoadingTransactions.value = false
+    isLoadingAllTransactions.value = false
     connectingBank.value = null
     error.value = null
     isDetailsModalOpen.value = false
@@ -175,14 +215,11 @@ export const useAccountStore = defineStore('accounts', () => {
     isLoadingStatuses.value = true
     try {
       await fetchBankStatuses()
-
-      // Загружаем счета для подключенных банков
       const connectedBanksList = connectedBanks.value
       const accountPromises = connectedBanksList.map(bank =>
         fetchAccountsForBank(bank.name)
       )
       await Promise.all(accountPromises)
-
       isInitialized.value = true
     } catch (error) {
       console.error('Error initializing accounts:', error)
@@ -194,6 +231,8 @@ export const useAccountStore = defineStore('accounts', () => {
   return {
     banks,
     transactions,
+    allTransactions,
+    isLoadingAllTransactions,
     currentTransactionData,
     isLoadingStatuses,
     isLoadingTransactions,
@@ -206,6 +245,7 @@ export const useAccountStore = defineStore('accounts', () => {
     fetchAccountsForBank,
     isInitialized,
     fetchAllAccounts,
+    fetchAllTransactionsForAllAccounts,
     fetchTransactions,
     connectBank,
     showTransactionDetails,

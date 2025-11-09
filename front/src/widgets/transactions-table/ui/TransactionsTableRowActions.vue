@@ -25,7 +25,7 @@ function copy(id: string) {
 </script>
 
 <template>
-  <DropdownMenu>
+  <DropdownMenu style="background-color: white">
     <DropdownMenuTrigger as-child>
       <Button variant="ghost" class="h-8 w-8 p-0">
         <span class="sr-only">Открыть меню</span>

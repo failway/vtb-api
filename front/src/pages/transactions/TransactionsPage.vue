@@ -188,7 +188,7 @@ const exportToPDF = () => {
             leave-from-class="opacity-100 scale-100"
             leave-to-class="opacity-0 scale-95"
           >
-            <Card class="w-full max-w-2xl relative">
+            <Card class="w-full max-w-2xl relative bg-white">
               <CardHeader class="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Детали транзакции</CardTitle>

@@ -8,9 +8,9 @@
         <!-- Левая сторона: Название (для десктопа) / Бургер (для мобильных) -->
         <div class="flex items-center">
           <h1 class="text-xl font-bold hidden lg:block">MapTrack</h1>
-          <Button variant="ghost" size="icon" class="lg:hidden">
+          <Button @click="toggleMobileMenu" variant="ghost" size="icon" class="lg:hidden">
             <Menu class="h-6 w-6" />
-            <span class="sr-only">Открыть меню</span>
+            <span class="sr-only">Открыть/закрыть меню</span>
           </Button>
         </div>
 
@@ -67,6 +67,24 @@
       </div>
     </header>
 
+    <!-- Mobile Menu -->
+    <Transition name="slide">
+      <div v-if="isMobileMenuOpen" class="lg:hidden fixed top-16 left-0 h-[calc(100%-4rem)] w-64 bg-background z-50 shadow-lg p-4 border-r bg-white">
+        <nav class="flex flex-col space-y-2">
+          <RouterLink to="/" @click="closeMobileMenu" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-accent" :class="{ 'bg-accent': $route.path === '/' }">
+            Главная
+          </RouterLink>
+          <RouterLink v-if="authStore.isLoggedIn" to="/profile" @click="closeMobileMenu" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-accent" :class="{ 'bg-accent': $route.path === '/profile' }">
+            Профиль
+          </RouterLink>
+        </nav>
+      </div>
+    </Transition>
+    <Transition name="fade">
+      <div v-if="isMobileMenuOpen" @click="closeMobileMenu" class="lg:hidden fixed inset-0 bg-black/30 z-40"></div>
+    </Transition>
+
+
     <!-- Main Content -->
     <main class="container flex-1 py-6 px-4">
       <slot />
@@ -77,6 +95,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/store/AuthStore'
 import { Button } from '@/components/ui/button'
@@ -85,6 +104,15 @@ import ChatWidget from '@/widgets/chat/ui/ChatWidget.vue'
 
 const $route = useRoute()
 const authStore = useAuthStore()
+const isMobileMenuOpen = ref(false)
+
+const toggleMobileMenu = () => {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value
+}
+
+const closeMobileMenu = () => {
+  isMobileMenuOpen.value = false
+}
 
 const handleLogout = () => {
   authStore.logout()

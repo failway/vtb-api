@@ -5,23 +5,62 @@
       <CardDescription>Визуализация ваших расходов на карте</CardDescription>
     </CardHeader>
     <CardContent class="flex-grow p-0 relative">
-      <div class="bg-slate-700 h-full w-full rounded-b-xl flex items-center justify-center text-slate-400">
-        Яндекс API Map
+      <div v-if="loading" class="flex items-center justify-center h-full text-muted-foreground">
+        Загрузка транзакций на карте...
       </div>
-      <div class="absolute bottom-4 right-4 flex flex-col gap-2">
-        <Button variant="secondary" size="icon" class="h-10 w-10">
-          <ZoomIn class="h-5 w-5" />
-        </Button>
-        <Button variant="secondary" size="icon" class="h-10 w-10">
-          <ZoomOut class="h-5 w-5" />
-        </Button>
+      <div v-else-if="transactionsWithCoords.length === 0" class="flex items-center justify-center h-full text-muted-foreground">
+        Нет данных о местоположении транзакций
       </div>
+      <l-map
+        v-else
+        v-model:zoom="zoom"
+        :center="center"
+        :use-global-leaflet="false"
+        class="rounded-b-xl"
+      >
+        <l-tile-layer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          layer-type="base"
+          name="OpenStreetMap"
+          attribution="&copy; <a href='http://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
+        />
+        <l-marker
+          v-for="transaction in transactionsWithCoords"
+          :key="transaction.transactionId"
+          :lat-lng="[transaction.merchant!.lat!, transaction.merchant!.lng!]"
+        >
+          <l-tooltip>
+            <div class="text-sm">
+              <p class="font-bold">{{ transaction.merchant?.name }}</p>
+              <p>Сумма: {{ transaction.amount.amount }} {{ transaction.amount.currency }}</p>
+            </div>
+          </l-tooltip>
+        </l-marker>
+      </l-map>
     </CardContent>
   </Card>
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue';
+import { LMap, LTileLayer, LMarker, LTooltip } from "@vue-leaflet/vue-leaflet";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut } from 'lucide-vue-next';
+import type { Transaction } from '@/entities/transaction/types';
+
+const props = defineProps<{
+  transactions: Transaction[],
+  loading: boolean
+}>();
+
+const zoom = ref(10);
+const center = ref<[number, number]>([55.751244, 37.618423]); // Центр Москвы по умолчанию
+
+const transactionsWithCoords = computed(() => {
+  return props.transactions.filter(
+    (t): t is Transaction & { merchant: { lat: number, lng: number } } =>
+      t.merchant !== null &&
+      typeof t.merchant.lat === 'number' &&
+      typeof t.merchant.lng === 'number'
+  );
+});
 </script>

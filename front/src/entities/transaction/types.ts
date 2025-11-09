@@ -6,6 +6,8 @@ export interface Merchant {
   address: string
   city: string
   country: string
+  lat?: number
+  lng?: number
 }
 
 export interface Card {

@@ -6,9 +6,11 @@
       <PromoCards />
     </div>
 
-    <!-- Правая колонка -->
     <div class="lg:col-span-2 xl:col-span-3">
-      <MapWidget />
+      <MapWidget
+        :transactions="accountStore.allTransactions"
+        :loading="accountStore.isLoadingAllTransactions"
+      />
     </div>
   </div>
 </template>
@@ -22,13 +24,17 @@ import MapWidget from '@/widgets/map/ui/MapWidget.vue';
 
 const accountStore = useAccountStore();
 
-onMounted(() => {
+onMounted(async () => {
   const hasAccounts = Object.values(accountStore.banks).some(b => b.accounts.length > 0);
   if (!hasAccounts) {
     console.log('[HomePage] Данные о счетах отсутствуют, запускаю загрузку.');
-    accountStore.fetchAllAccounts();
+    await accountStore.fetchAllAccounts();
   } else {
     console.log('[HomePage] Данные о счетах уже есть, пропускаю загрузку.');
+  }
+
+  if (accountStore.connectedBanks.length > 0) {
+    await accountStore.fetchAllTransactionsForAllAccounts();
   }
 });
 </script>
