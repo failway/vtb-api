@@ -17,8 +17,8 @@ BANK_URLS = {
     "sbank": "https://sbank.open.bankingapi.ru",
 }
 
-CLIENT_ID = os.getenv("CLIENT_ID", "team239")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET", "F1cVm5XwPoWquHf70R9VC8437ofbrQi0")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 
 
 # ---------- AUTH ----------
