@@ -4,8 +4,10 @@ from openai import AsyncOpenAI
 
 http_client = httpx.AsyncClient(timeout=30.0, verify=False)
 
+API_LLM = os.getenv("AI_KEY","")
+
 client = AsyncOpenAI(
-    api_key="io-v2-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJvd25lciI6ImRmODQ2Zjk2LTg5MWQtNGIxYS05ZWMwLWZiODkxNmFkM2U4OCIsImV4cCI6NDg5ODc2MzEzNX0.UQl6KjPYfDeavNcq0TGKvvqx38pvDXrMNTphj8_ZDm7rU_vK9KwBcMEltBsBqtYTwLxQA_2DiAHVEHcYYQNE-g",
+    api_key=API_LLM,
     base_url="https://api.intelligence.io.solutions/api/v1/",
     http_client=http_client,
 )
